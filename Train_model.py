@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn.model_selection import train_test_split, TimeSeriesSplit
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -68,3 +70,37 @@ print("Recall:", recall_score(y_test, log_pred, zero_division=0))
 print("F1:", f1_score(y_test, log_pred, zero_division=0))
 
 print(classification_report(y_test, log_pred, zero_division=0))
+
+tscv = TimeSeriesSplit(n_splits=5)
+
+cv_accuracy, cv_precision, cv_recall, cv_f1 = [], [], [], []
+
+for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+    X_fold_train = X.iloc[train_idx]
+    X_fold_test = X.iloc[test_idx]
+    y_fold_train = y.iloc[train_idx]
+    y_fold_test = y.iloc[test_idx]
+
+    fold_scaler = StandardScaler()
+    X_fold_train_scaled = fold_scaler.fit_transform(X_fold_train)
+    X_fold_test_scaled = fold_scaler.transform(X_fold_test)
+
+    rf_cv = RandomForestClassifier(
+        n_estimators=500,
+        max_depth=None,
+        class_weight="balanced_subsample",
+        random_state=42,
+    )
+    rf_cv.fit(X_fold_train_scaled, y_fold_train)
+    y_pred = rf_cv.predict(X_fold_test_scaled)
+
+    cv_accuracy.append(accuracy_score(y_fold_test, y_pred))
+    cv_precision.append(precision_score(y_fold_test, y_pred, zero_division=0))
+    cv_recall.append(recall_score(y_fold_test, y_pred, zero_division=0))
+    cv_f1.append(f1_score(y_fold_test, y_pred, zero_division=0))
+
+print("Random Forest Results (5-Fold Time-Series Cross-Validation)")
+print("Average Accuracy: ", round(np.mean(cv_accuracy), 4))
+print("Average Precision:", round(np.mean(cv_precision), 4))
+print("Average Recall:   ", round(np.mean(cv_recall), 4))
+print("Average F1:       ", round(np.mean(cv_f1), 4))
